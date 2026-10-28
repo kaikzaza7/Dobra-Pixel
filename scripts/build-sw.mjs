@@ -1,0 +1,8 @@
+import {readdir,readFile,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+async function walk(dir){const out=[];for(const e of await readdir(dir,{withFileTypes:true})){const path=dir+'/'+e.name;if(e.isDirectory())out.push(...await walk(path));else out.push(path);}return out;}
+const files=await walk('dist');const hash=createHash('sha256');for(const f of files)hash.update(await readFile(f));const version=hash.digest('hex').slice(0,12);
+// Core is installed atomically; heavier fonts are cached on first use.
+const core=files.filter(f=>!f.includes('/pdfjs/')).map(f=>'/'+f.slice(5));
+await writeFile('dist/sw.js',`const CACHE='dobra-pixel-${version}';const CORE=${JSON.stringify(core)};self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()));});self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('dobra-pixel-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});self.addEventListener('fetch',event=>{const url=new URL(event.request.url);if(event.request.method!=='GET'||url.origin!==location.origin||url.pathname.startsWith('/.'))return;event.respondWith(caches.open(CACHE).then(async cache=>{const hit=await cache.match(event.request);if(hit)return hit;try{const response=await fetch(event.request);if(response.ok)await cache.put(event.request,response.clone());return response;}catch(error){if(event.request.mode==='navigate')return cache.match('/index.html');throw error;}}));});`);
+console.log('Offline shell:',version);

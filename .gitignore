@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.sites-runtime/
+.openai/deploy.tar.gz
+*.log
+.DS_Store
+
+public/pdfjs/
+
+mobile-test.html
